@@ -21,13 +21,13 @@ public class ExternalSortTest {
     //if the fanAmt is sufficiently close to the number of blocks just merge all together
     private static int threshold = 5;
 
-    public static void sort(String f1, String f2) throws FileNotFoundException, IOException {
+    public static void sort(String f1, String f2) throws IOException {
         RandomAccessFile rafA = new RandomAccessFile("Tick0Data/test17c.dat", "rw");
         RandomAccessFile rafB = new RandomAccessFile(f2, "rw");
 
         length = rafA.length();
         System.out.println("File is " + length + " bytes long");
-        if (length < pageSize) {
+        if (length < pageSize) { //everything fits in memory
             DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(rafA.getFD())));
             DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(rafB.getFD())));
             System.out.println("File fits in memory, sort conventionally");
@@ -169,12 +169,12 @@ public class ExternalSortTest {
 
     private static int merge(String inputFile, String outputFile, long blockSize, long startPos, int k) throws IOException {
         //do a k-way merge
-        bufferSize = (int) ((memory / (k + 2)) * 0.8); //approximate space for k buffers and an output buffer
+        bufferSize = (int) ((memory / (k + 1)) * 0.8); //approximate space for k buffers and an output buffer
         RandomAccessFile rafOut = new RandomAccessFile(outputFile, "rw");
         rafOut.seek(startPos);
         System.out.println("Skipping to byte: " + startPos + " in output file (" + outputFile + ")");
         DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(
-                new FileOutputStream(rafOut.getFD()), bufferSize * 2));
+                new FileOutputStream(rafOut.getFD()), bufferSize));
         long bufferCount = 0;
         if (startPos + (k - 1) * blockSize > length) {
             throw new IOException("Error: start position goes over the end of the file");
@@ -296,7 +296,7 @@ public class ExternalSortTest {
         String f2 = args[1];
         fanAmt = Integer.parseInt(args[2]);
         memory = Runtime.getRuntime().freeMemory();
-        pageSize = memory / 4;
+        pageSize = memory / 5;
         System.out.println("Page size: " + pageSize);
         //pageSize = 16;
         //pageSize needs to be multiple of 4

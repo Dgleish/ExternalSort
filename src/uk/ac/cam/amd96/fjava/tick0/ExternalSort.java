@@ -21,9 +21,7 @@ public class ExternalSort {
     //if the fanAmt is sufficiently close to the number of blocks just merge all together
     private static int threshold = 5;
 
-    public static void sort(String f1, String f2) throws FileNotFoundException, IOException {
-        //TODO: Complete this method
-
+    public static void sort(String f1, String f2) throws IOException {
         RandomAccessFile rafA = new RandomAccessFile(f1, "rw");
         RandomAccessFile rafB = new RandomAccessFile(f2, "rw");
 
