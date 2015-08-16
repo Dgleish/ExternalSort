@@ -70,10 +70,10 @@ public class ExternalSort {
             int blocksLeft;
             int totalBlocks;
             int blocksMerged;
-            int k = 0;
+            int k;
             //loop until the file is one block
 
-            for (long blockSize = pageSize; blockSize < length; blockSize *= k) {
+            for (long blockSize = pageSize; blockSize < length; blockSize *= fanAmt) {
                 numPasses = 0;
                 totalBlocks = (int) Math.ceil(length / (double) blockSize);
                 System.out.println("Total blocks for blocksize " + blockSize + " is " + totalBlocks);
@@ -169,7 +169,7 @@ public class ExternalSort {
 
     private static int merge(String inputFile, String outputFile, long blockSize, long startPos, int k) throws IOException {
         //do a k-way merge
-        bufferSize = (int) ((memory / (k + 2)) * 0.8); //approximate space for k buffers and an output buffer
+        bufferSize = (int) ((memory / (k + 2)) * 0.7); //approximate space for k buffers and an output buffer
         RandomAccessFile rafOut = new RandomAccessFile(outputFile, "rw");
         rafOut.seek(startPos);
         System.out.println("Skipping to byte: " + startPos + " in output file (" + outputFile + ")");
@@ -181,42 +181,23 @@ public class ExternalSort {
         }
 
         //keep priority queue of ints in buffers
-        PriorityQueue<DataInputStream> q = new PriorityQueue<>(
-                new Comparator<DataInputStream>() {
-                    int x;
-                    int y;
-
+        PriorityQueue<NewDataInputStream> q = new PriorityQueue<NewDataInputStream>(
+                new Comparator<NewDataInputStream>() {
                     @Override
-                    public int compare(DataInputStream d1, DataInputStream d2) {
-                        x = Integer.MAX_VALUE;
-                        y = Integer.MAX_VALUE;
-                        d1.mark(4);
-                        d2.mark(4);
-                        try {
-                            x = d1.readInt();
-                            y = d2.readInt();
-
-                        } catch (IOException e) {
-                            System.out.println("Stream was empty");
-                        }
-                        try {
-                            d1.reset();
-                            d2.reset();
-                        } catch (IOException e) {
-                            System.out.println("Couldn't pushback an input stream");
-                        }
-                        return Integer.compare(x, y);
+                    public int compare(NewDataInputStream d1, NewDataInputStream d2) {
+                        return Integer.compare(d1.peek(), d2.peek());
                     }
                 }
         );
 
         //Map number of integers read from each data stream to that data stream object
-        Map<DataInputStream, MutableLong> numsReadMap = new HashMap<>(k);
+        Map<NewDataInputStream, MutableLong> numsReadMap = new HashMap<NewDataInputStream, MutableLong>(k);
 
         //create the input buffers and add them to priority queue
+        NewDataInputStream d;
         while (bufferCount < k) {
             //create buffered stream size bufferSize
-            DataInputStream d = new DataInputStream(new BufferedInputStream(
+            d = new NewDataInputStream(new BufferedInputStream(
                     new FileInputStream(new RandomAccessFile(inputFile, "rw").getFD()), bufferSize));
             numsReadMap.put(d, new MutableLong(0l));
             d.skip((bufferCount * blockSize) + startPos);
@@ -228,28 +209,28 @@ public class ExternalSort {
         //TODO: Optimise for the same number coming from the same stream multiple times
         //TODO: Work out why EOFException doesnt occur when doing multiple merge passes
         //continuously empty buffers
+        NewDataInputStream dis;
         while (!q.isEmpty()) {
             //get the stream at the head of the queue
-            DataInputStream d = q.poll();
+            dis = q.poll();
             //increment the integer count for this input stream
-            numsReadMap.get(d).increment();
+            numsReadMap.get(dis).increment();
             //write out smallest int
-            int curr = d.readInt();
-            dos.writeInt(curr);
+            dos.writeInt(dis.extract());
             //put the stream back in so that the queue reorders
-            q.offer(d);
+            q.offer(dis);
             //check for empty data streams (EoF) or when a stream has read the maximum number of ints
-            Iterator<DataInputStream> it = q.iterator();
+            Iterator<NewDataInputStream> it = q.iterator();
             while (it.hasNext()) {
-                d = it.next();
-                if (d.available() == 0) { //empty
-                    System.out.println("Buffer empty, put out " + numsReadMap.get(d).getValue() + " ints");
+                dis = it.next();
+                if (dis.isEmpty()) { //empty
+                    System.out.println("Buffer empty, put out " + numsReadMap.get(dis).getValue() + " ints");
                     it.remove();
-                    numsReadMap.remove(d);
-                } else if (numsReadMap.get(d).getValue() == (blockSize / 4)) {
-                    System.out.println("This buffer put out " + numsReadMap.get(d).getValue());
+                    numsReadMap.remove(dis);
+                } else if (numsReadMap.get(dis).getValue() == (blockSize / 4)) {
+                    System.out.println("This buffer put out " + numsReadMap.get(dis).getValue());
                     it.remove();
-                    numsReadMap.remove(d);
+                    numsReadMap.remove(dis);
                 }
             }
         }
@@ -297,14 +278,12 @@ public class ExternalSort {
         fanAmt = Integer.parseInt(args[2]);
         memory = Runtime.getRuntime().freeMemory();
         pageSize = memory / 4;
-        //pageSize = 16;
         //pageSize needs to be multiple of 4
         pageSize -= pageSize % 4;
         pageSizeInt = pageSize / 4;
 
         System.out.println("Page size: " + pageSize);
         sort(f1, f2);
-
         System.out.println("The checksum is: " + checkSum(f1));
         System.out.println((System.currentTimeMillis() - start)/1000 + " seconds");
     }

@@ -5,6 +5,7 @@ package uk.ac.cam.amd96.fjava.tick0;
  */
 public class MutableLong {
     long mutLong;
+
     public MutableLong(long l){
         mutLong = l;
     }
