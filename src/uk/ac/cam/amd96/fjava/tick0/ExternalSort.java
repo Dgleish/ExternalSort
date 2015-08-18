@@ -181,7 +181,7 @@ public class ExternalSort {
         }
 
         //keep priority queue of ints in buffers
-        PriorityQueue<NewDataInputStream> q = new PriorityQueue<NewDataInputStream>(
+        PriorityQueue<NewDataInputStream> q = new PriorityQueue<NewDataInputStream>(k,
                 new Comparator<NewDataInputStream>() {
                     @Override
                     public int compare(NewDataInputStream d1, NewDataInputStream d2) {

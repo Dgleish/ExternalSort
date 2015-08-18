@@ -21,6 +21,8 @@ public class ExternalSortTest {
     //if the fanAmt is sufficiently close to the number of blocks just merge all together
     private static int threshold = 5;
 
+    private static int bufferSizeCode = 1;
+
     public static void sort(String f1, String f2) throws IOException {
         RandomAccessFile rafA = new RandomAccessFile(f1, "rw");
         RandomAccessFile rafB = new RandomAccessFile(f2, "rw");
@@ -160,18 +162,18 @@ public class ExternalSortTest {
 
     private static int merge(String inputFile, String outputFile, long blockSize, long startPos, int k) throws IOException {
         //do a k-way merge
-        bufferSize = (int) ((memory / (k + 2)) * 0.7); //approximate space for k buffers and an output buffer
+        bufferSize = (int) ((memory / (k + bufferSizeCode)) * 0.7); //approximate space for k buffers and an output buffer
         RandomAccessFile rafOut = new RandomAccessFile(outputFile, "rw");
         rafOut.seek(startPos);
         DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(
-                new FileOutputStream(rafOut.getFD()), bufferSize * 2));
+                new FileOutputStream(rafOut.getFD()), bufferSize * bufferSizeCode));
         long bufferCount = 0;
         if (startPos + (k - 1) * blockSize > length) {
             throw new IOException("Error: start position goes over the end of the file");
         }
 
         //keep priority queue of ints in buffers
-        PriorityQueue<NewDataInputStream> q = new PriorityQueue<NewDataInputStream>(
+        PriorityQueue<NewDataInputStream> q = new PriorityQueue<NewDataInputStream>(k,
                 new Comparator<NewDataInputStream>() {
                     @Override
                     public int compare(NewDataInputStream d1, NewDataInputStream d2) {
@@ -259,8 +261,17 @@ public class ExternalSortTest {
         String f1 = args[0];
         String f2 = args[1];
         fanAmt = Integer.parseInt(args[2]);
+        double memDivisor = 1.3;
+        if(args.length == 4){
+            memDivisor = Double.parseDouble(args[3]);
+        }
+
+        if(args.length == 5){
+            memDivisor = Double.parseDouble(args[3]);
+            bufferSizeCode = Integer.parseInt(args[4]);
+        }
         memory = Runtime.getRuntime().freeMemory();
-        pageSize = memory / 4;
+        pageSize = (long) (memory / memDivisor);
         //pageSize needs to be multiple of 4
         pageSize -= pageSize % 4;
         pageSizeInt = pageSize / 4;
