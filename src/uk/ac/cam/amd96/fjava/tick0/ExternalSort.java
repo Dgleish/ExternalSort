@@ -169,12 +169,12 @@ public class ExternalSort {
 
     private static int merge(String inputFile, String outputFile, long blockSize, long startPos, int k) throws IOException {
         //do a k-way merge
-        bufferSize = (int) ((memory / (k + 2)) * 0.7); //approximate space for k buffers and an output buffer
+        bufferSize = (int) ((memory / (k + 5)) * 0.7); //approximate space for k buffers and an output buffer
         RandomAccessFile rafOut = new RandomAccessFile(outputFile, "rw");
         rafOut.seek(startPos);
         System.out.println("Skipping to byte: " + startPos + " in output file (" + outputFile + ")");
         DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(
-                new FileOutputStream(rafOut.getFD()), bufferSize * 2));
+                new FileOutputStream(rafOut.getFD()), bufferSize * 5));
         long bufferCount = 0;
         if (startPos + (k - 1) * blockSize > length) {
             throw new IOException("Error: start position goes over the end of the file");
@@ -272,19 +272,21 @@ public class ExternalSort {
     }
 
     public static void main(String[] args) throws Exception {
-        long start = System.currentTimeMillis();
         String f1 = args[0];
         String f2 = args[1];
-        fanAmt = Integer.parseInt(args[2]);
+        fanAmt = 5;
         memory = Runtime.getRuntime().freeMemory();
-        pageSize = memory / 4;
+        pageSize = memory / 2;
         //pageSize needs to be multiple of 4
         pageSize -= pageSize % 4;
         pageSizeInt = pageSize / 4;
-
         System.out.println("Page size: " + pageSize);
+        try{
+            Thread.sleep(2000);
+        }catch(InterruptedException e){
+
+        }
         sort(f1, f2);
         System.out.println("The checksum is: " + checkSum(f1));
-        System.out.println((System.currentTimeMillis() - start)/1000 + " seconds");
     }
 }
